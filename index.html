@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio — Gestione Pazienti</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">🌿</span>
+      <div>
+        <div class="brand-title">Studio</div>
+        <div class="brand-sub">Gestione nutrizionale</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">◐</span> Panoramica
+      </button>
+      <button class="nav-item" data-view="patients">
+        <span class="nav-icon">◍</span> Pazienti
+      </button>
+      <button class="nav-item" data-view="calendar">
+        <span class="nav-icon">▦</span> Calendario
+      </button>
+      <button class="nav-item" data-view="templates">
+        <span class="nav-icon">▤</span> Modelli
+      </button>
+    </nav>
+
+    <div class="sidebar-foot">
+      <button id="btn-export" class="ghost-btn" title="Scarica una copia di backup di tutti i dati">⇩ Esporta backup</button>
+      <label class="ghost-btn" title="Ripristina da un file di backup">
+        ⇧ Importa backup
+        <input type="file" id="file-import" accept="application/json" hidden>
+      </label>
+      <div class="storage-note">I dati restano solo in questo browser, su questo computer.</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <section id="view-dashboard" class="view active">
+      <header class="view-header">
+        <h1>Buongiorno</h1>
+        <p class="view-sub" id="today-label"></p>
+      </header>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-num" id="stat-patients">0</div>
+          <div class="stat-label">Pazienti in cura</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-visits-month">0</div>
+          <div class="stat-label">Visite questo mese</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-upcoming">0</div>
+          <div class="stat-label">Appuntamenti prossimi 7 giorni</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-templates">0</div>
+          <div class="stat-label">Modelli salvati</div>
+        </div>
+      </div>
+
+      <div class="dash-columns">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Prossimi appuntamenti</h2>
+            <button class="link-btn" data-goto="calendar">Vai al calendario →</button>
+          </div>
+          <div id="dash-appointments" class="list-plain"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Visite recenti</h2>
+            <button class="link-btn" data-goto="patients">Vai ai pazienti →</button>
+          </div>
+          <div id="dash-recent-visits" class="list-plain"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATIENTS LIST -->
+    <section id="view-patients" class="view">
+      <header class="view-header">
+        <h1>Pazienti</h1>
+        <div class="header-actions">
+          <input type="search" id="patient-search" placeholder="Cerca per nome…" class="input-search">
+          <button class="primary-btn" id="btn-new-patient">+ Nuovo paziente</button>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table class="data-table" id="patients-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Età</th>
+              <th>Ultima visita</th>
+              <th>Peso attuale</th>
+              <th>Prossimo appuntamento</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="patients-tbody"></tbody>
+        </table>
+        <div id="patients-empty" class="empty-state" hidden>
+          <p>Nessun paziente ancora. Aggiungi il primo per iniziare a tenere traccia delle visite.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATIENT DETAIL -->
+    <section id="view-patient-detail" class="view">
+      <header class="view-header">
+        <button class="back-btn" data-goto="patients">← Tutti i pazienti</button>
+      </header>
+
+      <div class="patient-head">
+        <div>
+          <h1 id="pd-name">—</h1>
+          <p class="view-sub" id="pd-meta">—</p>
+        </div>
+        <div class="header-actions">
+          <button class="ghost-btn" id="btn-edit-patient">Modifica anagrafica</button>
+          <button class="danger-btn-outline" id="btn-delete-patient">Elimina paziente</button>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="visits">Storico visite</button>
+        <button class="tab-btn" data-tab="chart">Grafico andamento</button>
+        <button class="tab-btn" data-tab="notes">Anamnesi &amp; note</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-visits">
+        <div class="panel-head">
+          <h2>Tabella visite</h2>
+          <button class="primary-btn" id="btn-new-visit">+ Registra visita</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table dense" id="visits-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Età</th>
+                <th>Peso<br>(kg)</th>
+                <th>Altezza<br>(cm)</th>
+                <th>BMI</th>
+                <th>Vita<br>(cm)</th>
+                <th>Fianchi<br>(cm)</th>
+                <th>Coscia<br>(cm)</th>
+                <th>Σ pliche<br>(mm)</th>
+                <th>Massa grassa<br>(%)</th>
+                <th>Metabolismo basale<br>(kcal)</th>
+                <th>Peso ideale<br>(kg)</th>
+                <th>Fabbisogno<br>attuale (kcal)</th>
+                <th>Fabbisogno<br>ideale (kcal)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="visits-tbody"></tbody>
+          </table>
+          <div id="visits-empty" class="empty-state" hidden>
+            <p>Nessuna visita registrata. Aggiungi la prima misurazione.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" id="tab-chart">
+        <div class="panel-head">
+          <h2>Andamento nel tempo</h2>
+          <div class="chart-controls" id="chart-metric-controls"></div>
+        </div>
+        <div class="chart-box">
+          <canvas id="patient-chart"></canvas>
+        </div>
+        <p class="chart-empty-note" id="chart-empty-note" hidden>Servono almeno due visite per disegnare un grafico.</p>
+      </div>
+
+      <div class="tab-panel" id="tab-notes">
+        <div class="panel-head">
+          <h2>Anamnesi e note cliniche</h2>
+          <span class="autosave-note">Salvataggio automatico</span>
+        </div>
+        <textarea id="patient-notes" class="notes-area" placeholder="Anamnesi, patologie, allergie e intolleranze, terapie in corso, obiettivi del percorso…"></textarea>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section id="view-calendar" class="view">
+      <header class="view-header">
+        <h1>Calendario appuntamenti</h1>
+        <div class="header-actions">
+          <button class="primary-btn" id="btn-new-appt">+ Nuovo appuntamento</button>
+        </div>
+      </header>
+
+      <div class="cal-toolbar">
+        <button class="ghost-btn small" id="cal-prev">←</button>
+        <h2 id="cal-month-label">—</h2>
+        <button class="ghost-btn small" id="cal-next">→</button>
+        <button class="ghost-btn small" id="cal-today">Oggi</button>
+      </div>
+
+      <div class="calendar-grid" id="calendar-grid"></div>
+
+      <div class="panel" style="margin-top:28px;">
+        <div class="panel-head"><h2>Tutti gli appuntamenti in ordine</h2></div>
+        <div id="appt-full-list" class="list-plain"></div>
+      </div>
+    </section>
+
+    <!-- TEMPLATES -->
+    <section id="view-templates" class="view">
+      <header class="view-header">
+        <h1>Modelli di diete e opuscoli</h1>
+        <div class="header-actions">
+          <select id="tpl-filter" class="input-search" style="max-width:180px;">
+            <option value="">Tutte le categorie</option>
+            <option value="dieta">Diete</option>
+            <option value="opuscolo">Opuscoli</option>
+            <option value="altro">Altro</option>
+          </select>
+          <input type="search" id="tpl-search" placeholder="Cerca per titolo o tag…" class="input-search">
+          <button class="primary-btn" id="btn-new-template">+ Nuovo modello</button>
+        </div>
+      </header>
+
+      <div class="template-grid" id="templates-grid"></div>
+      <div id="templates-empty" class="empty-state" hidden>
+        <p>Nessun modello ancora. Salva qui le tue diete standard e gli opuscoli da riutilizzare con i pazienti.</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ MODALS ============ -->
+
+<div class="modal-backdrop" id="modal-backdrop"></div>
+
+<!-- Patient form modal -->
+<div class="modal" id="modal-patient">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="patient-modal-title">Nuovo paziente</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <form id="form-patient">
+      <input type="hidden" id="p-id">
+      <div class="form-grid">
+        <label class="field span-2">Nome e cognome
+          <input type="text" id="p-name" required>
+        </label>
+        <label class="field">Data di nascita
+          <input type="date" id="p-dob">
+        </label>
+        <label class="field">Sesso
+          <select id="p-sex">
+            <option value="F">Femmina</option>
+            <option value="M">Maschio</option>
+          </select>
+        </label>
+        <label class="field">Telefono
+          <input type="tel" id="p-phone">
+        </label>
+        <label class="field">Email
+          <input type="email" id="p-email">
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-modal>Annulla</button>
+        <button type="submit" class="primary-btn">Salva paziente</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Visit form modal -->
+<div class="modal modal-wide" id="modal-visit">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="visit-modal-title">Registra visita</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <form id="form-visit">
+      <input type="hidden" id="v-id">
+
+      <div class="form-section-title">Dati generali</div>
+      <div class="form-grid cols-4">
+        <label class="field">Data visita
+          <input type="date" id="v-date" required>
+        </label>
+        <label class="field">Età (anni)
+          <input type="number" id="v-age" min="0" max="120" required>
+        </label>
+        <label class="field">Peso (kg)
+          <input type="number" step="0.1" id="v-weight" required>
+        </label>
+        <label class="field">Altezza (cm)
+          <input type="number" step="0.1" id="v-height" required>
+        </label>
+      </div>
+
+      <div class="form-section-title">Circonferenze</div>
+      <div class="form-grid cols-4">
+        <label class="field">Giro vita (cm)
+          <input type="number" step="0.1" id="v-waist">
+        </label>
+        <label class="field">Fianchi (cm)
+          <input type="number" step="0.1" id="v-hips">
+        </label>
+        <label class="field">Coscia (cm)
+          <input type="number" step="0.1" id="v-thigh">
+        </label>
+      </div>
+
+      <div class="form-section-title">Plicometria (mm) — 6 pliche</div>
+      <div class="form-grid cols-4">
+        <label class="field">Tricipitale
+          <input type="number" step="0.1" id="v-f1">
+        </label>
+        <label class="field">Bicipitale
+          <input type="number" step="0.1" id="v-f2">
+        </label>
+        <label class="field">Sottoscapolare
+          <input type="number" step="0.1" id="v-f3">
+        </label>
+        <label class="field">Soprailiaca
+          <input type="number" step="0.1" id="v-f4">
+        </label>
+        <label class="field">Addominale
+          <input type="number" step="0.1" id="v-f5">
+        </label>
+        <label class="field">Coscia (plica)
+          <input type="number" step="0.1" id="v-f6">
+        </label>
+      </div>
+
+      <div class="form-section-title">Calcoli</div>
+      <div class="form-grid cols-3">
+        <label class="field">Formula metabolismo basale
+          <select id="v-bmr-formula">
+            <option value="mifflin">Mifflin – St Jeor</option>
+            <option value="harris">Harris – Benedict (rivista)</option>
+            <option value="katch">Katch – McArdle (da massa magra)</option>
+          </select>
+        </label>
+        <label class="field">Formula peso ideale
+          <select id="v-ideal-formula">
+            <option value="lorentz">Lorentz</option>
+            <option value="devine">Devine</option>
+            <option value="robinson">Robinson</option>
+            <option value="broca">Broca corretta</option>
+          </select>
+        </label>
+        <label class="field">Livello di attività (PAL)
+          <select id="v-activity">
+            <option value="1.2">Sedentario (1.2)</option>
+            <option value="1.375">Leggero (1.375)</option>
+            <option value="1.55" selected>Moderato (1.55)</option>
+            <option value="1.725">Intenso (1.725)</option>
+            <option value="1.9">Molto intenso (1.9)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="calc-preview" id="calc-preview">
+        <div class="calc-item"><span>BMI</span><strong id="cp-bmi">—</strong></div>
+        <div class="calc-item"><span>Σ pliche</span><strong id="cp-folds">—</strong></div>
+        <div class="calc-item"><span>Massa grassa</span><strong id="cp-bodyfat">—</strong></div>
+        <div class="calc-item"><span>Metabolismo basale</span><strong id="cp-bmr">—</strong></div>
+        <div class="calc-item"><span>Peso ideale</span><strong id="cp-ideal">—</strong></div>
+        <div class="calc-item"><span>Fabbisogno attuale</span><strong id="cp-tdee">—</strong></div>
+        <div class="calc-item"><span>Fabbisogno ideale</span><strong id="cp-tdee-ideal">—</strong></div>
+      </div>
+      <p class="form-note">I calcoli si aggiornano automaticamente mentre inserisci i dati. La massa grassa richiede almeno le 4 pliche tricipite/bicipite/sottoscapolare/soprailiaca (formula di Durnin–Womersley); Katch–McArdle richiede a sua volta la massa grassa.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-modal>Annulla</button>
+        <button type="submit" class="primary-btn">Salva visita</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Appointment form modal -->
+<div class="modal" id="modal-appt">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="appt-modal-title">Nuovo appuntamento</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <form id="form-appt">
+      <input type="hidden" id="a-id">
+      <div class="form-grid">
+        <label class="field span-2">Paziente
+          <select id="a-patient" required></select>
+        </label>
+        <label class="field">Data
+          <input type="date" id="a-date" required>
+        </label>
+        <label class="field">Ora
+          <input type="time" id="a-time" required>
+        </label>
+        <label class="field span-2">Tipo di appuntamento
+          <select id="a-type">
+            <option value="Prima visita">Prima visita</option>
+            <option value="Controllo">Controllo</option>
+            <option value="Revisione dieta">Revisione dieta</option>
+            <option value="Altro">Altro</option>
+          </select>
+        </label>
+        <label class="field span-2">Note
+          <textarea id="a-notes" rows="3"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="danger-btn-outline" id="btn-delete-appt" style="margin-right:auto;" hidden>Elimina</button>
+        <button type="button" class="ghost-btn" data-close-modal>Annulla</button>
+        <button type="submit" class="primary-btn">Salva appuntamento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Template form modal -->
+<div class="modal modal-wide" id="modal-template">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="tpl-modal-title">Nuovo modello</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <form id="form-template">
+      <input type="hidden" id="t-id">
+      <div class="form-grid cols-3">
+        <label class="field span-2">Titolo
+          <input type="text" id="t-title" required>
+        </label>
+        <label class="field">Categoria
+          <select id="t-category">
+            <option value="dieta">Dieta</option>
+            <option value="opuscolo">Opuscolo</option>
+            <option value="altro">Altro</option>
+          </select>
+        </label>
+        <label class="field span-3">Tag (separati da virgola)
+          <input type="text" id="t-tags" placeholder="es. ipocalorica, 1500 kcal, vegetariana">
+        </label>
+        <label class="field span-3">Contenuto
+          <textarea id="t-content" rows="12" placeholder="Scrivi qui il modello: struttura della dieta, testo dell'opuscolo, istruzioni…"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="danger-btn-outline" id="btn-delete-template" style="margin-right:auto;" hidden>Elimina</button>
+        <button type="button" class="ghost-btn" data-close-modal>Annulla</button>
+        <button type="submit" class="primary-btn">Salva modello</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Template viewer modal -->
+<div class="modal modal-wide" id="modal-template-view">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="tplview-title">—</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <div class="tpl-view-meta" id="tplview-meta"></div>
+    <div class="tpl-view-content" id="tplview-content"></div>
+    <div class="modal-actions">
+      <button type="button" class="ghost-btn" id="btn-copy-template">Copia testo</button>
+      <button type="button" class="primary-btn" id="btn-edit-template-from-view">Modifica</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
