@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Studio Nutrizione — Gestione Pazienti</title>
+<title>Studio — Gestione Pazienti</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌿</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,25 +17,25 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark">🫐</span>
+      <span class="brand-mark">🌿</span>
       <div>
-        <div class="brand-title">Studio Nutrizione</div>
+        <div class="brand-title">Studio</div>
         <div class="brand-sub">Gestione nutrizionale</div>
       </div>
     </div>
 
     <nav class="nav">
       <button class="nav-item active" data-view="dashboard">
-        <span class="nav-icon">🌈</span> Panoramica
+        <span class="nav-icon">◐</span> Panoramica
       </button>
       <button class="nav-item" data-view="patients">
-        <span class="nav-icon">👤</span> Pazienti
+        <span class="nav-icon">◍</span> Pazienti
       </button>
       <button class="nav-item" data-view="calendar">
-        <span class="nav-icon">🌫️</span> Calendario
+        <span class="nav-icon">▦</span> Calendario
       </button>
       <button class="nav-item" data-view="templates">
-        <span class="nav-icon">🫧</span> Modelli
+        <span class="nav-icon">▤</span> Modelli
       </button>
     </nav>
 
@@ -146,6 +146,7 @@
       <div class="tabs">
         <button class="tab-btn active" data-tab="visits">Storico visite</button>
         <button class="tab-btn" data-tab="chart">Grafico andamento</button>
+        <button class="tab-btn" data-tab="diete">Diete</button>
         <button class="tab-btn" data-tab="notes">Anamnesi &amp; note</button>
       </div>
 
@@ -200,6 +201,44 @@
           <span class="autosave-note">Salvataggio automatico</span>
         </div>
         <textarea id="patient-notes" class="notes-area" placeholder="Anamnesi, patologie, allergie e intolleranze, terapie in corso, obiettivi del percorso…"></textarea>
+      </div>
+
+      <div class="tab-panel" id="tab-diete">
+
+        <!-- lista piani -->
+        <div id="diete-list-view">
+          <div class="panel-head">
+            <h2>Piani alimentari</h2>
+            <button class="primary-btn" id="btn-new-diet">+ Nuovo piano settimanale</button>
+          </div>
+          <div id="diets-list" class="list-plain"></div>
+          <div id="diets-empty" class="empty-state" hidden><p>Nessun piano alimentare ancora per questo paziente.</p></div>
+        </div>
+
+        <!-- editor piano -->
+        <div id="diet-editor-view" hidden>
+          <button class="back-btn" id="btn-back-diets" style="margin-bottom:14px;">← Tutti i piani</button>
+
+          <div class="diet-editor-head">
+            <input type="text" id="diet-title" class="diet-title-input" placeholder="Titolo del piano (es. Piano settimanale 1500 kcal)">
+            <div class="header-actions">
+              <button class="ghost-btn small" id="btn-copy-diet">Copia come testo</button>
+              <button class="ghost-btn small" id="btn-print-diet">Stampa</button>
+              <button class="danger-btn-outline" id="btn-delete-diet">Elimina piano</button>
+            </div>
+          </div>
+
+          <div class="diet-summary" id="diet-summary"></div>
+
+          <div class="day-tabs" id="day-tabs"></div>
+          <div id="day-content"></div>
+
+          <p class="form-note" style="margin-top:18px;">
+            Valori nutrizionali indicativi da un database di riferimento generico, non dalle tabelle ufficiali CREA
+            (<a href="https://www.alimentinutrizione.it/tabelle-nutrizionali/ricerca-per-alimento" target="_blank" rel="noopener">consultale qui</a> per la massima precisione).
+            Puoi correggere o aggiungere qualunque alimento dal pulsante "+ nuovo alimento".
+          </p>
+        </div>
       </div>
     </section>
 
@@ -373,10 +412,11 @@
         </label>
         <label class="field">Livello di attività (PAL)
           <select id="v-activity">
-            <option value="1.4">Sedentario (1.4)</option>
-            <option value="1.6" selected>Legggero (1.6)</option>
-            <option value="1.8">Moderato (1.8)</option>
-            <option value="2.0">Intenso (2.0)</option>
+            <option value="1.2">Sedentario (1.2)</option>
+            <option value="1.375">Leggero (1.375)</option>
+            <option value="1.55" selected>Moderato (1.55)</option>
+            <option value="1.725">Intenso (1.725)</option>
+            <option value="1.9">Molto intenso (1.9)</option>
           </select>
         </label>
       </div>
@@ -492,7 +532,46 @@
   </div>
 </div>
 
+<!-- Custom food modal -->
+<div class="modal" id="modal-custom-food">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Nuovo alimento personalizzato</h2>
+      <button class="icon-btn" data-close-modal>✕</button>
+    </div>
+    <form id="form-custom-food">
+      <div class="form-grid">
+        <label class="field span-2">Nome alimento
+          <input type="text" id="cf-name" required>
+        </label>
+        <label class="field">Kcal per 100 g
+          <input type="number" step="0.1" id="cf-kcal" required>
+        </label>
+        <label class="field">Proteine (g/100g)
+          <input type="number" step="0.1" id="cf-protein" required>
+        </label>
+        <label class="field">Carboidrati (g/100g)
+          <input type="number" step="0.1" id="cf-carbs" required>
+        </label>
+        <label class="field">Grassi (g/100g)
+          <input type="number" step="0.1" id="cf-fat" required>
+        </label>
+        <label class="field">Fibra (g/100g)
+          <input type="number" step="0.1" id="cf-fiber" value="0">
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" data-close-modal>Annulla</button>
+        <button type="submit" class="primary-btn">Salva alimento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<datalist id="food-datalist"></datalist>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="foods.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

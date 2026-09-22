@@ -21,11 +21,13 @@ const DB = {
     this.data.patients ||= [];
     this.data.appointments ||= [];
     this.data.templates ||= [];
+    this.data.customFoods ||= [];
+    this.data.patients.forEach(p => { p.diets ||= []; });
     return this.data;
   },
 
   blank() {
-    return { patients: [], appointments: [], templates: [] };
+    return { patients: [], appointments: [], templates: [], customFoods: [] };
   },
 
   save() {
@@ -366,7 +368,7 @@ document.getElementById('form-patient').addEventListener('submit', (e) => {
   if (id) {
     Object.assign(DB.patient(id), payload);
   } else {
-    DB.data.patients.push({ id: uid(), ...payload, visits: [], notes: '' });
+    DB.data.patients.push({ id: uid(), ...payload, visits: [], notes: '', diets: [] });
   }
   DB.save();
   closeModals();
@@ -392,6 +394,7 @@ function openPatient(id) {
   currentPatientId = id;
   const p = DB.patient(id);
   if (!p) { goto('patients'); return; }
+  p.diets ||= [];
 
   document.getElementById('pd-name').textContent = p.name;
   const age = computeAge(p.dob);
@@ -416,6 +419,7 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
   if (tab === 'chart') renderPatientChart();
+  if (tab === 'diete') renderDietsList();
 }
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
 
@@ -925,6 +929,358 @@ document.getElementById('btn-delete-template').addEventListener('click', () => {
 });
 
 /* ==========================================================================
+   DIETE — pianificatore settimanale
+   ========================================================================== */
+
+const DAYS = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+const MEALS = ['Colazione', 'Spuntino mattina', 'Pranzo', 'Spuntino pomeriggio', 'Cena'];
+
+let currentDietId = null;
+let currentDietDay = DAYS[0];
+
+function blankDietDays() {
+  const days = {};
+  DAYS.forEach(d => {
+    days[d] = {};
+    MEALS.forEach(m => { days[d][m] = []; });
+  });
+  return days;
+}
+
+function findFood(name) {
+  const n = name.trim().toLowerCase();
+  if (!n) return null;
+  const all = [...FOOD_DB, ...(DB.data.customFoods || [])];
+  return all.find(f => f.name.toLowerCase() === n) ||
+    all.find(f => f.name.toLowerCase().includes(n));
+}
+
+function populateFoodDatalist() {
+  const list = document.getElementById('food-datalist');
+  const all = [...FOOD_DB, ...(DB.data.customFoods || [])].sort((a, b) => a.name.localeCompare(b.name));
+  list.innerHTML = all.map(f => `<option value="${f.name}"></option>`).join('');
+}
+
+/* ---- lista piani ---- */
+
+function renderDietsList() {
+  populateFoodDatalist();
+  document.getElementById('diete-list-view').hidden = false;
+  document.getElementById('diet-editor-view').hidden = true;
+
+  const p = DB.patient(currentPatientId);
+  const list = [...(p.diets || [])].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  document.getElementById('diets-empty').hidden = list.length > 0;
+
+  document.getElementById('diets-list').innerHTML = list.map(d => {
+    const totals = weekTotalsFor(d);
+    return `<div class="list-row" data-id="${d.id}" style="cursor:pointer;">
+      <div><div class="row-main">${d.title || 'Piano senza titolo'}</div><div class="row-sub">creato il ${fmtDate((d.createdAt || '').slice(0, 10))} · media ${Math.round(totals.avg.kcal)} kcal/die</div></div>
+      <span class="row-tag">apri →</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('diets-list').querySelectorAll('[data-id]').forEach(el => {
+    el.addEventListener('click', () => openDietEditor(el.dataset.id));
+  });
+}
+
+document.getElementById('btn-new-diet').addEventListener('click', () => {
+  const p = DB.patient(currentPatientId);
+  const diet = { id: uid(), title: 'Nuovo piano settimanale', createdAt: new Date().toISOString(), days: blankDietDays() };
+  p.diets.push(diet);
+  DB.save();
+  openDietEditor(diet.id);
+});
+
+document.getElementById('btn-back-diets').addEventListener('click', renderDietsList);
+
+/* ---- editor piano ---- */
+
+function openDietEditor(dietId) {
+  currentDietId = dietId;
+  currentDietDay = DAYS[0];
+  document.getElementById('diete-list-view').hidden = true;
+  document.getElementById('diet-editor-view').hidden = false;
+
+  const diet = currentDiet();
+  document.getElementById('diet-title').value = diet.title || '';
+
+  renderDayTabs();
+  renderDayContent();
+  renderDietSummary();
+}
+
+function currentDiet() {
+  const p = DB.patient(currentPatientId);
+  return (p.diets || []).find(d => d.id === currentDietId);
+}
+
+document.getElementById('diet-title').addEventListener('input', (e) => {
+  const diet = currentDiet();
+  if (diet) { diet.title = e.target.value; DB.save(); }
+});
+
+document.getElementById('btn-delete-diet').addEventListener('click', () => {
+  if (!confirm('Eliminare questo piano alimentare?')) return;
+  const p = DB.patient(currentPatientId);
+  p.diets = p.diets.filter(d => d.id !== currentDietId);
+  DB.save();
+  renderDietsList();
+});
+
+function renderDayTabs() {
+  const box = document.getElementById('day-tabs');
+  box.innerHTML = DAYS.map(d => `<button class="day-tab-btn ${d === currentDietDay ? 'active' : ''}" data-day="${d}">${d}</button>`).join('');
+  box.querySelectorAll('[data-day]').forEach(btn => {
+    btn.addEventListener('click', () => { currentDietDay = btn.dataset.day; renderDayTabs(); renderDayContent(); });
+  });
+}
+
+function renderDayContent() {
+  const diet = currentDiet();
+  if (!diet) return;
+  const box = document.getElementById('day-content');
+  const dayData = diet.days[currentDietDay];
+
+  box.innerHTML = MEALS.map(meal => {
+    const items = dayData[meal] || [];
+    const totals = sumItems(items);
+    return `<div class="meal-block" data-meal="${meal}">
+      <h3>${meal}</h3>
+      <div class="meal-items">
+        ${items.length ? items.map(it => {
+          const t = itemTotals(it);
+          return `<div class="meal-item-row">
+            <span class="mi-name">${it.foodName} <span style="font-weight:400;color:var(--ink-soft)">— ${it.grams} g</span></span>
+            <span class="mi-macros">${Math.round(t.kcal)} kcal · P ${round(t.protein, 1)}g · C ${round(t.carbs, 1)}g · G ${round(t.fat, 1)}g</span>
+            <button class="mi-remove" data-remove="${it.id}" title="Rimuovi">✕</button>
+          </div>`;
+        }).join('') : `<div class="meal-empty">Nessun alimento aggiunto.</div>`}
+      </div>
+      <div class="meal-add-row">
+        <input type="text" list="food-datalist" placeholder="Cerca alimento…" class="mi-food-input">
+        <input type="number" placeholder="g" min="1" class="mi-grams-input">
+        <button type="button" class="add-food-btn">+ Aggiungi</button>
+        <button type="button" class="new-food-link">+ nuovo alimento</button>
+      </div>
+      <div class="meal-total">Totale pasto: <strong>${Math.round(totals.kcal)} kcal</strong> · P ${round(totals.protein, 1)}g · C ${round(totals.carbs, 1)}g · G ${round(totals.fat, 1)}g</div>
+    </div>`;
+  }).join('');
+
+  // wire up per-meal controls
+  box.querySelectorAll('.meal-block').forEach(block => {
+    const meal = block.dataset.meal;
+    const foodInput = block.querySelector('.mi-food-input');
+    const gramsInput = block.querySelector('.mi-grams-input');
+
+    block.querySelector('.add-food-btn').addEventListener('click', () => {
+      addFoodItem(meal, foodInput.value, gramsInput.value);
+    });
+    foodInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gramsInput.focus(); } });
+    gramsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addFoodItem(meal, foodInput.value, gramsInput.value); } });
+
+    block.querySelector('.new-food-link').addEventListener('click', () => {
+      document.getElementById('cf-name').value = foodInput.value;
+      openModal('modal-custom-food');
+    });
+
+    block.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', () => removeFoodItem(meal, btn.dataset.remove));
+    });
+  });
+}
+
+function addFoodItem(meal, foodName, gramsRaw) {
+  const diet = currentDiet();
+  const grams = num(gramsRaw);
+  if (!foodName || !foodName.trim()) { alert('Digita il nome di un alimento.'); return; }
+  const food = findFood(foodName);
+  if (!food) {
+    if (confirm(`"${foodName}" non è nel database. Vuoi aggiungerlo come nuovo alimento?`)) {
+      document.getElementById('cf-name').value = foodName;
+      openModal('modal-custom-food');
+    }
+    return;
+  }
+  if (!grams || grams <= 0) { alert('Inserisci una quantità in grammi valida.'); return; }
+
+  diet.days[currentDietDay][meal].push({ id: uid(), foodName: food.name, grams });
+  DB.save();
+  renderDayContent();
+  renderDietSummary();
+}
+
+function removeFoodItem(meal, itemId) {
+  const diet = currentDiet();
+  diet.days[currentDietDay][meal] = diet.days[currentDietDay][meal].filter(it => it.id !== itemId);
+  DB.save();
+  renderDayContent();
+  renderDietSummary();
+}
+
+/* ---- calcoli nutrizionali ---- */
+
+function itemTotals(item) {
+  const food = findFood(item.foodName) || { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+  const factor = item.grams / 100;
+  return {
+    kcal: food.kcal * factor,
+    protein: food.protein * factor,
+    carbs: food.carbs * factor,
+    fat: food.fat * factor,
+    fiber: (food.fiber || 0) * factor,
+  };
+}
+
+function sumItems(items) {
+  return items.reduce((acc, it) => {
+    const t = itemTotals(it);
+    acc.kcal += t.kcal; acc.protein += t.protein; acc.carbs += t.carbs; acc.fat += t.fat; acc.fiber += t.fiber;
+    return acc;
+  }, { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+}
+
+function dayTotals(diet, day) {
+  const allItems = MEALS.flatMap(m => diet.days[day][m] || []);
+  return sumItems(allItems);
+}
+
+function weekTotalsFor(diet) {
+  const totals = DAYS.map(d => dayTotals(diet, d));
+  const sum = totals.reduce((acc, t) => {
+    acc.kcal += t.kcal; acc.protein += t.protein; acc.carbs += t.carbs; acc.fat += t.fat; acc.fiber += t.fiber;
+    return acc;
+  }, { kcal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+  const avg = { kcal: sum.kcal / 7, protein: sum.protein / 7, carbs: sum.carbs / 7, fat: sum.fat / 7, fiber: sum.fiber / 7 };
+  return { sum, avg };
+}
+
+function renderDietSummary() {
+  const diet = currentDiet();
+  if (!diet) return;
+  const { avg } = weekTotalsFor(diet);
+
+  // target dall'ultima visita del paziente
+  const p = DB.patient(currentPatientId);
+  const visits = [...(p.visits || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const last = visits[0];
+  let targetLabel = 'Nessuna visita registrata: registra una visita per confrontare il fabbisogno.';
+  let targetClass = '';
+  if (last) {
+    const c = computeVisit(last, p.sex);
+    if (c.tdee !== null) {
+      const diff = avg.kcal - c.tdee;
+      const pct = c.tdee ? (diff / c.tdee) * 100 : 0;
+      targetClass = Math.abs(pct) <= 10 ? 'ontarget' : (diff > 0 ? 'over' : 'under');
+      targetLabel = `Fabbisogno attuale stimato: ${Math.round(c.tdee)} kcal/die (${diff >= 0 ? '+' : ''}${Math.round(diff)} kcal rispetto al piano)`;
+    }
+  }
+
+  document.getElementById('diet-summary').innerHTML = `
+    <div class="ds-item"><span>Media kcal/die</span><strong>${Math.round(avg.kcal)}</strong></div>
+    <div class="ds-item"><span>Proteine medie</span><strong>${round(avg.protein, 1)} g</strong></div>
+    <div class="ds-item"><span>Carboidrati medi</span><strong>${round(avg.carbs, 1)} g</strong></div>
+    <div class="ds-item"><span>Grassi medi</span><strong>${round(avg.fat, 1)} g</strong></div>
+    <div class="ds-item"><span>Fibra media</span><strong>${round(avg.fiber, 1)} g</strong></div>
+    <div class="ds-item ${targetClass}" style="grid-column: span 2;"><span>Confronto con fabbisogno</span><small>${targetLabel}</small></div>
+  `;
+}
+
+/* ---- alimento personalizzato ---- */
+
+document.getElementById('form-custom-food').addEventListener('submit', (e) => {
+  e.preventDefault();
+  DB.data.customFoods ||= [];
+  const food = {
+    name: document.getElementById('cf-name').value.trim(),
+    kcal: num(document.getElementById('cf-kcal').value) || 0,
+    protein: num(document.getElementById('cf-protein').value) || 0,
+    carbs: num(document.getElementById('cf-carbs').value) || 0,
+    fat: num(document.getElementById('cf-fat').value) || 0,
+    fiber: num(document.getElementById('cf-fiber').value) || 0,
+  };
+  if (!food.name) return;
+  // replace if a custom food with same name already exists
+  DB.data.customFoods = DB.data.customFoods.filter(f => f.name.toLowerCase() !== food.name.toLowerCase());
+  DB.data.customFoods.push(food);
+  DB.save();
+  closeModals();
+  document.getElementById('form-custom-food').reset();
+  populateFoodDatalist();
+  if (currentDietId) renderDayContent();
+});
+
+/* ---- copia / stampa ---- */
+
+document.getElementById('btn-copy-diet').addEventListener('click', () => {
+  const diet = currentDiet();
+  if (!diet) return;
+  let text = `${diet.title || 'Piano alimentare'}\n${'='.repeat((diet.title || '').length)}\n\n`;
+  DAYS.forEach(day => {
+    text += `${day}\n`;
+    MEALS.forEach(meal => {
+      const items = diet.days[day][meal] || [];
+      if (!items.length) return;
+      text += `  ${meal}:\n`;
+      items.forEach(it => { text += `    - ${it.foodName}, ${it.grams} g\n`; });
+    });
+    const t = dayTotals(diet, day);
+    text += `  Totale giorno: ${Math.round(t.kcal)} kcal (P ${round(t.protein, 1)}g, C ${round(t.carbs, 1)}g, G ${round(t.fat, 1)}g)\n\n`;
+  });
+  const { avg } = weekTotalsFor(diet);
+  text += `Media settimanale: ${Math.round(avg.kcal)} kcal/die (P ${round(avg.protein, 1)}g, C ${round(avg.carbs, 1)}g, G ${round(avg.fat, 1)}g, fibra ${round(avg.fiber, 1)}g)\n`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy-diet');
+    const original = btn.textContent;
+    btn.textContent = 'Copiato ✓';
+    setTimeout(() => btn.textContent = original, 1400);
+  });
+});
+
+document.getElementById('btn-print-diet').addEventListener('click', () => {
+  const diet = currentDiet();
+  const p = DB.patient(currentPatientId);
+  if (!diet) return;
+
+  let html = `<html><head><title>${diet.title || 'Piano alimentare'}</title><meta charset="utf-8">
+    <style>
+      body{ font-family: Arial, sans-serif; padding: 30px; color:#202B24; }
+      h1{ font-size:22px; margin-bottom:2px; }
+      h2{ font-size:15px; margin: 22px 0 6px; border-bottom:1px solid #ccc; padding-bottom:4px; }
+      h3{ font-size:13px; margin: 10px 0 4px; color:#355445; }
+      p.sub{ color:#666; margin-top:0; font-size:13px; }
+      ul{ margin:2px 0 8px 18px; padding:0; font-size:13px; }
+      .tot{ font-size:12px; color:#555; margin-bottom:10px; }
+      .weeksum{ margin-top:26px; padding-top:12px; border-top:2px solid #333; font-size:13.5px; }
+    </style></head><body>`;
+  html += `<h1>${diet.title || 'Piano alimentare'}</h1><p class="sub">${p.name} · generato il ${new Date().toLocaleDateString('it-IT')}</p>`;
+
+  DAYS.forEach(day => {
+    const t = dayTotals(diet, day);
+    html += `<h2>${day} — ${Math.round(t.kcal)} kcal</h2>`;
+    MEALS.forEach(meal => {
+      const items = diet.days[day][meal] || [];
+      if (!items.length) return;
+      html += `<h3>${meal}</h3><ul>`;
+      items.forEach(it => { html += `<li>${it.foodName} — ${it.grams} g</li>`; });
+      html += `</ul>`;
+    });
+    html += `<div class="tot">Totale: ${Math.round(t.kcal)} kcal · Proteine ${round(t.protein, 1)}g · Carboidrati ${round(t.carbs, 1)}g · Grassi ${round(t.fat, 1)}g</div>`;
+  });
+
+  const { avg } = weekTotalsFor(diet);
+  html += `<div class="weeksum">Media settimanale: <strong>${Math.round(avg.kcal)} kcal/die</strong> — Proteine ${round(avg.protein, 1)}g · Carboidrati ${round(avg.carbs, 1)}g · Grassi ${round(avg.fat, 1)}g · Fibra ${round(avg.fiber, 1)}g</div>`;
+  html += `</body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 300);
+});
+
+/* ==========================================================================
    BACKUP — esporta / importa
    ========================================================================== */
 
@@ -948,6 +1304,8 @@ document.getElementById('file-import').addEventListener('change', (e) => {
       if (!parsed.patients || !parsed.appointments || !parsed.templates) throw new Error('formato non valido');
       if (confirm('Importare questo backup sovrascriverà tutti i dati attuali in questo browser. Continuare?')) {
         DB.data = parsed;
+        DB.data.customFoods ||= [];
+        DB.data.patients.forEach(p => { p.diets ||= []; });
         DB.save();
         goto('dashboard');
         alert('Backup importato correttamente.');

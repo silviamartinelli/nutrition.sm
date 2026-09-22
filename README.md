@@ -18,6 +18,14 @@ il fabbisogno calorico e organizzare diete/opuscoli e appuntamenti.
     **Broca corretta**
   - fabbisogno calorico attuale (metabolismo basale × livello di attività)
   - fabbisogno calorico ideale (stesso calcolo sul peso ideale)
+- **Diete** (dentro la scheda paziente, accanto al grafico): componi un piano
+  alimentare settimanale giorno per giorno e pasto per pasto scegliendo gli
+  alimenti da un database di riferimento (~150 alimenti comuni). L'app
+  calcola automaticamente kcal, proteine, carboidrati, grassi e fibra per
+  ogni pasto, giorno e media settimanale, e la confronta con il fabbisogno
+  calorico calcolato nell'ultima visita del paziente. Puoi aggiungere
+  qualunque alimento mancante con i tuoi valori, copiare il piano come testo
+  o stamparlo. Puoi salvare più piani per lo stesso paziente nel tempo.
 - **Modelli**: un archivio di diete standard e opuscoli riutilizzabili, con
   categorie, tag e ricerca.
 - **Calendario**: vista mensile degli appuntamenti, collegati ai pazienti.
@@ -29,8 +37,8 @@ il fabbisogno calorico e organizzare diete/opuscoli e appuntamenti.
 
 1. Crea un nuovo repository su GitHub (può essere privato, se preferisci che
    non sia visibile ad altri).
-2. Carica questi tre file nella radice del repository: `index.html`,
-   `style.css`, `app.js` (e questo `README.md`, opzionale).
+2. Carica questi file nella radice del repository: `index.html`,
+   `style.css`, `app.js`, `foods.js` (e questo `README.md`, opzionale).
 3. Nel repository vai su **Settings → Pages**.
 4. In "Build and deployment" scegli **Deploy from a branch**, branch
    `main`, cartella `/root`, poi **Save**.
@@ -72,3 +80,14 @@ e conservarlo in un posto sicuro.
 
 Queste sono stime di supporto alla valutazione clinica, non sostituiscono il
 giudizio professionale.
+
+## Database alimenti (per il piano dietetico)
+
+I valori nutrizionali usati nella scheda "Diete" (`foods.js`) sono un elenco
+indipendente di valori medi tipici, compilato per uso pratico — **non** è
+un'estrazione delle tabelle ufficiali CREA di alimentinutrizione.it, che
+dichiara espressamente di non poter essere copiato/riprodotto. Per la
+massima precisione su un caso clinico specifico, confronta il valore con le
+[tabelle ufficiali CREA](https://www.alimentinutrizione.it/tabelle-nutrizionali/ricerca-per-alimento)
+e correggilo direttamente nell'app (pulsante "+ nuovo alimento", che
+sovrascrive un alimento esistente con lo stesso nome).

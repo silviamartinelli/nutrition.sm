@@ -296,6 +296,61 @@ textarea, input, select{ font-family: inherit; font-size: 14px; }
 
 .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
 
+/* ============================================================
+   Diete (piano alimentare)
+   ============================================================ */
+.diet-editor-head{ display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+.diet-title-input{
+  font-family: var(--font-display); font-size:20px; border:none; background:none; padding:4px 2px;
+  border-bottom: 1px solid transparent; flex:1; min-width:220px; color: var(--ink);
+}
+.diet-title-input:hover, .diet-title-input:focus{ border-bottom-color: var(--line); outline:none; }
+
+.diet-summary{
+  display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:12px;
+  background: var(--sage-tint); border-radius: var(--radius-m); padding:16px 18px; margin-bottom:20px;
+}
+.diet-summary .ds-item{ display:flex; flex-direction:column; gap:2px; }
+.diet-summary .ds-item span{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color: var(--sage-dark); }
+.diet-summary .ds-item strong{ font-family: var(--font-display); font-size:19px; color: var(--ink); }
+.diet-summary .ds-item small{ font-size:11px; color: var(--ink-soft); }
+.ds-item.over strong{ color: var(--rust); }
+.ds-item.under strong{ color: var(--blue); }
+.ds-item.ontarget strong{ color: var(--sage-dark); }
+
+.day-tabs{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:18px; }
+.day-tab-btn{
+  border:1px solid var(--line); background: var(--paper); color: var(--ink-soft);
+  padding: 7px 14px; border-radius: 20px; font-size:13px; cursor:pointer; font-weight:500;
+}
+.day-tab-btn.active{ background: var(--sage-dark); color:#fff; border-color: var(--sage-dark); }
+
+.meal-block{ background: var(--paper); border:1px solid var(--line-soft); border-radius: var(--radius-m); padding:16px 18px; margin-bottom:14px; box-shadow: var(--shadow-card); }
+.meal-block h3{ font-size:14.5px; font-family: var(--font-body); font-weight:700; color: var(--sage-dark); margin-bottom:10px; }
+.meal-items{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.meal-item-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13.5px; padding: 7px 10px; background: var(--bg); border-radius: var(--radius-s); }
+.meal-item-row .mi-name{ font-weight:600; flex:1; }
+.meal-item-row .mi-macros{ color: var(--ink-soft); font-size:12px; white-space:nowrap; }
+.meal-item-row .mi-remove{ background:none; border:none; color: var(--ink-soft); cursor:pointer; font-size:13px; }
+.meal-item-row .mi-remove:hover{ color: var(--danger); }
+.meal-empty{ font-size:12.5px; color: var(--ink-soft); padding: 2px 2px 4px; }
+
+.meal-add-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.meal-add-row input[type="text"]{ flex:2; min-width:160px; padding:8px 10px; border-radius:var(--radius-s); border:1px solid var(--line); background: var(--bg); font-size:13.5px; }
+.meal-add-row input[type="number"]{ width:80px; padding:8px 10px; border-radius:var(--radius-s); border:1px solid var(--line); background: var(--bg); font-size:13.5px; }
+.meal-add-row .add-food-btn{ background: var(--sage); color:#fff; border:none; padding:8px 14px; border-radius: var(--radius-s); font-size:12.5px; cursor:pointer; font-weight:600; }
+.meal-add-row .add-food-btn:hover{ background: var(--sage-dark); }
+.meal-add-row .new-food-link{ background:none; border:none; color: var(--sage-dark); font-size:12px; cursor:pointer; text-decoration: underline; }
+.meal-total{ text-align:right; font-size:12px; color: var(--ink-soft); margin-top:8px; padding-top:8px; border-top: 1px dashed var(--line-soft); }
+.meal-total strong{ color: var(--ink); }
+
+@media print {
+  .sidebar, .header-actions, .tabs, .back-btn, .day-tabs, .meal-add-row, .form-note{ display:none !important; }
+  .main{ padding: 0; max-width:none; }
+  .app{ display:block; }
+  .meal-block{ box-shadow:none; border:1px solid #ccc; break-inside: avoid; }
+}
+
 @media (max-width: 900px){
   .app{ grid-template-columns: 1fr; }
   .sidebar{ position:static; height:auto; }
