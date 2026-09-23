@@ -325,6 +325,15 @@ textarea, input, select{ font-family: inherit; font-size: 14px; }
 }
 .day-tab-btn.active{ background: var(--sage-dark); color:#fff; border-color: var(--sage-dark); }
 
+.day-summary-header{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  background: var(--sage-dark); color:#fff; border-radius: var(--radius-m); padding:16px 20px; margin-bottom:18px;
+}
+.day-summary-header h3{ font-family: var(--font-display); font-size:19px; font-weight:500; color:#fff; margin:0; }
+.day-summary-macros{ display:flex; align-items:center; gap:18px; font-size:13.5px; color:#DCE7DF; }
+.day-summary-macros .dsm-kcal{ font-family: var(--font-display); font-size:18px; color:#fff; font-weight:600; }
+.day-summary-macros strong{ color:#fff; font-weight:600; }
+
 .meal-block{ background: var(--paper); border:1px solid var(--line-soft); border-radius: var(--radius-m); padding:16px 18px; margin-bottom:14px; box-shadow: var(--shadow-card); }
 .meal-block h3{ font-size:14.5px; font-family: var(--font-body); font-weight:700; color: var(--sage-dark); margin-bottom:10px; }
 .meal-items{ display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }

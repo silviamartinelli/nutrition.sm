@@ -1042,8 +1042,19 @@ function renderDayContent() {
   if (!diet) return;
   const box = document.getElementById('day-content');
   const dayData = diet.days[currentDietDay];
+  const dTotals = dayTotals(diet, currentDietDay);
 
-  box.innerHTML = MEALS.map(meal => {
+  let html = `<div class="day-summary-header">
+    <h3>${currentDietDay}</h3>
+    <div class="day-summary-macros">
+      <span class="dsm-kcal">${Math.round(dTotals.kcal)} kcal</span>
+      <span>P <strong>${round(dTotals.protein, 1)} g</strong></span>
+      <span>C <strong>${round(dTotals.carbs, 1)} g</strong></span>
+      <span>G <strong>${round(dTotals.fat, 1)} g</strong></span>
+    </div>
+  </div>`;
+
+  html += MEALS.map(meal => {
     const items = dayData[meal] || [];
     const totals = sumItems(items);
     return `<div class="meal-block" data-meal="${meal}">
@@ -1068,7 +1079,7 @@ function renderDayContent() {
     </div>`;
   }).join('');
 
-  // wire up per-meal controls
+  box.innerHTML = html;
   box.querySelectorAll('.meal-block').forEach(block => {
     const meal = block.dataset.meal;
     const foodInput = block.querySelector('.mi-food-input');
